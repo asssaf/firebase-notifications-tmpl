@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Welcome to Firebase Hosting</title>
+  </head>
+  <body>
+    <script src="/config.js"></script>
+    <script>
+      window.firebaseConfig = firebaseConfig
+      window.vapidKey = vapidKey
+    </script>
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-analytics.js";
+      import { getMessaging, getToken, onMessage } from "/__/firebase/9.18.0/firebase-messaging.js";
+      import { getFirestore, doc, setDoc, serverTimestamp } from "/__/firebase/9.18.0/firebase-firestore.js";
+
+      const firebaseConfig = window.firebaseConfig
+      const vapidKey = window.vapidKey
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const messaging = getMessaging(app);
+      getToken(messaging, { vapidKey: vapidKey }).then((currentToken) => {
+        if (currentToken) {
+          console.log('currentToken', currentToken)
+
+          const db = getFirestore(app);
+
+          setDoc(doc(db, "tokens", currentToken), {
+            timestamp: serverTimestamp()
+          }).then(() => {
+            console.log("updated")
+          }).catch((err) => {
+            console.log(err)
+          })
+
+          console.log("registering onMessage")
+          onMessage(messaging, (payload) => {
+            console.log('Message received. ', payload);
+            // ...
+          }, e => {
+            console.log(e)
+          });
+
+        } else {
+          // Show permission request UI
+          console.log('No registration token available. Request permission to generate one.');
+          // ...
+        }
+      }).catch((err) => {
+        console.log('An error occurred while retrieving token. ', err);
+        // ...
+      });
+
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const loadEl = document.querySelector('#load');
+        loadEl.textContent = `Firebase SDK loaded`;
+      });
+    </script>
+
+    <div id="message">
+      <h2>Welcome</h2>
+      <h1>Firebase Hosting Setup Complete</h1>
+      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
+      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
+    </div>
+    <p id="load">Firebase SDK Loading&hellip;</p>
+
+    <script>
+    </script>
+
+  </body>
+</html>
+
