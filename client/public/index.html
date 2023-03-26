@@ -85,6 +85,7 @@
       function updateToken(user, currentToken) {
         setDoc(doc(db, "tokens", currentToken), {
           uid: user.uid,
+          email: user.email,
           timestamp: serverTimestamp()
         }).then(() => {
           console.log("updated")
