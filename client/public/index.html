@@ -12,8 +12,8 @@
       window.vapidKey = vapidKey
     </script>
     <script type="module">
-      // Import the functions you need from the SDKs you need
       import { initializeApp } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-app.js";
+      import { getAuth, initializeAuth, indexedDBLocalPersistence, onAuthStateChanged, signOut, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-auth.js";
       import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.18.0/firebase-analytics.js";
       import { getMessaging, getToken, onMessage } from "/__/firebase/9.18.0/firebase-messaging.js";
       import { getFirestore, doc, setDoc, serverTimestamp } from "/__/firebase/9.18.0/firebase-firestore.js";
@@ -23,40 +23,85 @@
 
       // Initialize Firebase
       const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
       const analytics = getAnalytics(app);
       const messaging = getMessaging(app);
-      getToken(messaging, { vapidKey: vapidKey }).then((currentToken) => {
+      const db = getFirestore(app);
+
+      // handle auth changes
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          // User is signed in, see docs for a list of available properties
+          // https://firebase.google.com/docs/reference/js/firebase.User
+          console.log("user", user)
+          initializeToken(user)
+        } else {
+          console.log("no user")
+          // User is signed out
+          const provider = new GoogleAuthProvider();
+          provider.addScope('profile');
+          provider.addScope('email');
+          signInWithRedirect(auth, provider);
+        }
+      });
+
+      // TODO sign out
+      // signOut(auth).then(() => {
+      //   // Sign-out successful.
+      // }).catch((error) => {
+      //   // An error happened.
+      // });
+
+
+      // get the token for the current user
+      function initializeToken(user) {
+        if (user == null) {
+          console.log("can't update token without an authenticated user")
+          return
+        }
+        getToken(messaging, { vapidKey: vapidKey })
+          .then((currentToken) => {
+            handleToken(user, currentToken)
+          }).catch((err) => {
+            console.log('An error occurred while retrieving token. ', err);
+          });
+      }
+
+      // handle the token response
+      function handleToken(user, currentToken) {
         if (currentToken) {
           console.log('currentToken', currentToken)
 
-          const db = getFirestore(app);
-
-          setDoc(doc(db, "tokens", currentToken), {
-            timestamp: serverTimestamp()
-          }).then(() => {
-            console.log("updated")
-          }).catch((err) => {
-            console.log(err)
-          })
-
-          console.log("registering onMessage")
-          onMessage(messaging, (payload) => {
-            console.log('Message received. ', payload);
-            // ...
-          }, e => {
-            console.log(e)
-          });
+          updateToken(user, currentToken)
+          handleMessages()
 
         } else {
           // Show permission request UI
           console.log('No registration token available. Request permission to generate one.');
-          // ...
         }
-      }).catch((err) => {
-        console.log('An error occurred while retrieving token. ', err);
-        // ...
-      });
+      }
 
+      // update the user's token in the DB
+      function updateToken(user, currentToken) {
+        setDoc(doc(db, "tokens", currentToken), {
+          uid: user.uid,
+          timestamp: serverTimestamp()
+        }).then(() => {
+          console.log("updated")
+        }).catch((err) => {
+          console.log(err)
+        })
+      }
+
+      // start listening for messages
+      function handleMessages() {
+        console.log("registering onMessage")
+        onMessage(messaging, (payload) => {
+          console.log('Message received. ', payload);
+        }, e => {
+          console.log(e)
+        });
+      }
 
       document.addEventListener('DOMContentLoaded', function() {
         const loadEl = document.querySelector('#load');
